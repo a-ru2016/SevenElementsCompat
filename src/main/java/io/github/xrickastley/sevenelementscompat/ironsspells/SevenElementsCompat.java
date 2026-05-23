@@ -1,4 +1,4 @@
-package io.github.xrickastley.sevenelementscompat;
+package io.github.xrickastley.sevenelementscompat.ironsspells;
 
 import io.github.xrickastley.sevenelements.component.ElementalInfusionComponent;
 import io.github.xrickastley.sevenelements.element.Element;
@@ -23,7 +23,7 @@ import java.util.Map;
 
 @Mod(SevenElementsCompat.MODID)
 public class SevenElementsCompat {
-    public static final String MODID = "sevenelementscompat";
+    public static final String MODID = "sevenelementscompat_irons_spells";
     private static final Logger LOGGER = LogManager.getLogger();
 
     private static final Map<String, Element> SIMPLY_SWORDS_MAP = new HashMap<>();
@@ -69,7 +69,7 @@ public class SevenElementsCompat {
     }
 
     public SevenElementsCompat() {
-        LOGGER.info("SevenElementsCompat initialized.");
+        LOGGER.info("SevenElementsCompat_irons-spells initialized.");
     }
 
     @SuppressWarnings("unchecked")
@@ -154,6 +154,130 @@ public class SevenElementsCompat {
         return null;
     }
 
+    public static ElementalInfusionComponent getRealInfusion(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return null;
+        var componentType = getElementalInfusionComponent();
+        if (componentType == null) return null;
+        
+        ActiveElementHolder.BYPASS_DYNAMIC_INFUSION.set(true);
+        try {
+            return stack.get(componentType);
+        } finally {
+            ActiveElementHolder.BYPASS_DYNAMIC_INFUSION.set(false);
+        }
+    }
+
+    public static Object getInfusedElementOfItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return null;
+        }
+        try {
+            var infusion = getRealInfusion(stack);
+            if (infusion != null) {
+                return infusion.getElement();
+            }
+        } catch (Throwable e) {
+            // Ignore
+        }
+        return null;
+    }
+
+    public static void setSlotInfusedElement(ItemStack bookStack, int slotIndex, ElementalInfusionComponent component) {
+        if (bookStack == null || bookStack.isEmpty()) return;
+
+        net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, bookStack, tag -> {
+            net.minecraft.nbt.CompoundTag spellsTag;
+            if (tag.contains("SevenElementsCompatSpells", 10)) {
+                spellsTag = tag.getCompound("SevenElementsCompatSpells");
+            } else {
+                spellsTag = new net.minecraft.nbt.CompoundTag();
+                tag.put("SevenElementsCompatSpells", spellsTag);
+            }
+
+            if (component == null) {
+                spellsTag.remove(String.valueOf(slotIndex));
+            } else {
+                try {
+                    net.minecraft.nbt.Tag compTag = ElementalInfusionComponent.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, component)
+                        .result().orElse(null);
+                    if (compTag != null) {
+                        spellsTag.put(String.valueOf(slotIndex), compTag);
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to encode ElementalInfusionComponent for slot " + slotIndex, e);
+                }
+            }
+
+            if (spellsTag.isEmpty()) {
+                tag.remove("SevenElementsCompatSpells");
+            }
+        });
+    }
+
+    public static ElementalInfusionComponent getSlotInfusedElement(ItemStack bookStack, int slotIndex) {
+        if (bookStack == null || bookStack.isEmpty()) return null;
+        
+        net.minecraft.world.item.component.CustomData customData = bookStack.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA);
+        if (customData == null) return null;
+        
+        net.minecraft.nbt.CompoundTag tag = customData.copyTag();
+        if (tag.contains("SevenElementsCompatSpells", 10)) {
+            net.minecraft.nbt.CompoundTag spellsTag = tag.getCompound("SevenElementsCompatSpells");
+            String key = String.valueOf(slotIndex);
+            if (spellsTag.contains(key)) {
+                try {
+                    net.minecraft.nbt.Tag compTag = spellsTag.get(key);
+                    return ElementalInfusionComponent.CODEC.parse(net.minecraft.nbt.NbtOps.INSTANCE, compTag)
+                        .result().orElse(null);
+                } catch (Exception e) {
+                    LOGGER.error("Failed to decode ElementalInfusionComponent for slot " + slotIndex, e);
+                }
+            }
+        }
+        return null;
+    }
+
+    public static void cleanupSlotInfusedElements(ItemStack bookStack) {
+        if (bookStack == null || bookStack.isEmpty()) return;
+        
+        try {
+            if (ISpellContainer.isSpellContainer(bookStack)) {
+                var container = ISpellContainer.get(bookStack);
+                if (container != null) {
+                    java.util.Set<Integer> validIndices = new java.util.HashSet<>();
+                    for (var slot : container.getActiveSpells()) {
+                        validIndices.add(slot.index());
+                    }
+                    
+                    net.minecraft.world.item.component.CustomData.update(net.minecraft.core.component.DataComponents.CUSTOM_DATA, bookStack, tag -> {
+                        if (tag.contains("SevenElementsCompatSpells", 10)) {
+                            net.minecraft.nbt.CompoundTag spellsTag = tag.getCompound("SevenElementsCompatSpells");
+                            java.util.List<String> keysToRemove = new java.util.ArrayList<>();
+                            for (String key : spellsTag.getAllKeys()) {
+                                try {
+                                    int idx = Integer.parseInt(key);
+                                    if (!validIndices.contains(idx)) {
+                                        keysToRemove.add(key);
+                                    }
+                                } catch (NumberFormatException e) {
+                                    keysToRemove.add(key);
+                                }
+                            }
+                            for (String key : keysToRemove) {
+                                spellsTag.remove(key);
+                            }
+                            if (spellsTag.isEmpty()) {
+                                tag.remove("SevenElementsCompatSpells");
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (Throwable e) {
+            // Ignore
+        }
+    }
+
     private static final java.util.Map<String, Element> DAMAGE_TYPE_MAP = java.util.Map.of(
         "irons_spellbooks:fire_magic", Element.PYRO,
         "irons_spellbooks:ice_magic", Element.CRYO,
@@ -178,6 +302,28 @@ public class SevenElementsCompat {
                 } catch (Exception e) {
                     LOGGER.error("Failed to extract original source from ElementalDamageSource", e);
                 }
+            }
+
+            // Custom Element Infusion Check (spellbook slot infusion or active cast context)
+            Object customElementObj = null;
+            net.minecraft.world.entity.Entity directEntityForInfusion = checkSource.getDirectEntity();
+            if (directEntityForInfusion instanceof InfusedEntity ie) {
+                String elementName = ie.sevenelementscompat$getInfusedElement();
+                if (elementName != null && !elementName.isEmpty()) {
+                    customElementObj = elementName;
+                    LOGGER.info("Found custom infused element from direct entity: {}", customElementObj);
+                }
+            }
+            
+            if (customElementObj == null) {
+                customElementObj = ActiveElementHolder.ACTIVE_CAST_ELEMENT.get();
+                if (customElementObj != null) {
+                    LOGGER.info("Found custom infused element from active cast context: {}", customElementObj);
+                }
+            }
+            
+            if (customElementObj != null) {
+                return (net.minecraft.world.damagesource.DamageSource) createElementalDamageSource(checkSource, target, customElementObj);
             }
 
             // 1. DamageType ID による判定 (堅牢でシリアライズ対応)
@@ -259,9 +405,11 @@ public class SevenElementsCompat {
         return null;
     }
 
-    private static Object createElementalDamageSource(Object source, Object target, Object element) {
+    public static Object createElementalDamageSource(Object source, Object target, Object elementObj) {
         try {
-            LOGGER.info("createElementalDamageSource starting...");
+            LOGGER.info("createElementalDamageSource starting with elementObj: {}", elementObj);
+            if (elementObj == null) return source;
+
             Class<?> elementalApplicationsClass = Class.forName("io.github.xrickastley.sevenelements.element.ElementalApplications");
             Class<?> elementClass = Class.forName("io.github.xrickastley.sevenelements.element.Element");
             
@@ -282,8 +430,31 @@ public class SevenElementsCompat {
                 return source;
             }
             
-            LOGGER.info("Found gaugeUnits method: {}", gaugeUnitsMethod);
-            Object application = gaugeUnitsMethod.invoke(null, target, element, 1.0);
+            Object firstElement = null;
+            java.util.List<Object> extraElements = new java.util.ArrayList<>();
+
+            if (elementObj instanceof String s) {
+                String[] parts = s.split(",");
+                if (parts.length > 0) {
+                    firstElement = Enum.valueOf((Class<Enum>) elementClass, parts[0].trim());
+                    for (int i = 1; i < parts.length; i++) {
+                        try {
+                            extraElements.add(Enum.valueOf((Class<Enum>) elementClass, parts[i].trim()));
+                        } catch (Exception ex) {
+                            LOGGER.error("Failed to parse extra element: " + parts[i], ex);
+                        }
+                    }
+                }
+            } else {
+                firstElement = elementObj;
+            }
+
+            if (firstElement == null) {
+                return source;
+            }
+            
+            LOGGER.info("First element: {}, extra elements: {}", firstElement, extraElements);
+            Object application = gaugeUnitsMethod.invoke(null, target, firstElement, 1.0);
             LOGGER.info("Created ElementalApplication: {}", application);
 
             Class<?> internalCooldownContextClass = Class.forName("io.github.xrickastley.sevenelements.element.InternalCooldownContext");
@@ -301,11 +472,6 @@ public class SevenElementsCompat {
             
             if (ofDefaultMethod == null) {
                 LOGGER.warn("ofDefaultMethod is null!");
-                for (java.lang.reflect.Method m : internalCooldownContextClass.getMethods()) {
-                    if (m.getName().equals("ofDefault")) {
-                        LOGGER.info("ofDefault candidate: {} with params {}", m, m.getParameterTypes());
-                    }
-                }
                 return source;
             }
             
@@ -339,6 +505,19 @@ public class SevenElementsCompat {
             LOGGER.info("Found ElementalDamageSource constructor: {}", constructor);
             Object result = constructor.newInstance(source, application, icd);
             LOGGER.info("Successfully created ElementalDamageSource result!");
+
+            // Add extra elements if any
+            for (Object extraElement : extraElements) {
+                try {
+                    Object extraApplication = gaugeUnitsMethod.invoke(null, target, extraElement, 1.0);
+                    java.lang.reflect.Method addAdditionalMethod = result.getClass().getMethod("addAdditionalApplication", elementalApplicationClass);
+                    addAdditionalMethod.invoke(result, extraApplication);
+                    LOGGER.info("Successfully added additional application to damage source: {}", extraElement);
+                } catch (Exception e) {
+                    LOGGER.error("Failed to add additional application: " + extraElement, e);
+                }
+            }
+
             return result;
         } catch (Exception e) {
             LOGGER.error("Failed to wrap spell damage into ElementalDamageSource", e);

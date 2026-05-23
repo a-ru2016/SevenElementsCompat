@@ -1,6 +1,6 @@
-package io.github.xrickastley.sevenelementscompat.mixin;
+package io.github.xrickastley.sevenelementscompat.ironsspells.mixin;
 
-import io.github.xrickastley.sevenelementscompat.SevenElementsCompat;
+import io.github.xrickastley.sevenelementscompat.ironsspells.SevenElementsCompat;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;

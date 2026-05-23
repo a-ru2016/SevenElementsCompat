@@ -1,7 +1,7 @@
-package io.github.xrickastley.sevenelementscompat.mixin;
+package io.github.xrickastley.sevenelementscompat.ironsspells.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
-import io.github.xrickastley.sevenelementscompat.SevenElementsCompat;
+import io.github.xrickastley.sevenelementscompat.ironsspells.SevenElementsCompat;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.world.item.ItemStack;

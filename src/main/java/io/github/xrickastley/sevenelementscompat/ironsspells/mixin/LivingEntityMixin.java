@@ -1,6 +1,6 @@
-package io.github.xrickastley.sevenelementscompat.mixin;
+package io.github.xrickastley.sevenelementscompat.ironsspells.mixin;
 
-import io.github.xrickastley.sevenelementscompat.SevenElementsCompat;
+import io.github.xrickastley.sevenelementscompat.ironsspells.SevenElementsCompat;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;

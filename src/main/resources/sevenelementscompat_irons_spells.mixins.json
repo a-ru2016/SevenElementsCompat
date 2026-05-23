@@ -1,12 +1,16 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "io.github.xrickastley.sevenelementscompat.mixin",
+  "package": "io.github.xrickastley.sevenelementscompat.ironsspells.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "ItemStackMixin",
     "LivingEntityMixin",
-    "ElementComponentImplMixin"
+    "ElementComponentImplMixin",
+    "EntityMixin",
+    "ProjectileMixin",
+    "AbstractSpellMixin",
+    "InscriptionTableMenuMixin"
   ],
   "client": [],
   "injectors": {
